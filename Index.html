@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>WebGIS - Kelurahan Rangkah</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    #map { position: absolute; top:0; bottom:0; left:0; right:380px; }
+    
+    #sidebar {
+      position:absolute; right:0; top:0; width:380px; bottom:0;
+      background:#f8f9fa; box-shadow: -3px 0 10px rgba(0,0,0,0.1); 
+      overflow-y:auto; overflow-x:hidden;
+    }
+    
+    .sidebar-content { padding:20px; }
+    
+    h3 { 
+      color:#2c3e50; margin-bottom:20px; font-size:20px; 
+      border-bottom:3px solid #3498db; padding-bottom:10px;
+    }
+    
+    .control-group { 
+      background:white; padding:15px; margin-bottom:15px; 
+      border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.08);
+    }
+    
+    .control-group h4 {
+      color:#34495e; font-size:15px; margin-bottom:12px;
+      display:flex; align-items:center; gap:8px;
+    }
+    
+    label { display:block; font-weight:600; margin-bottom:8px; color:#34495e; font-size:14px; }
+    
+    select, input[type="text"], textarea, button { 
+      width:100%; padding:10px; border-radius:5px; border:1px solid #ddd;
+      font-size:14px; transition: all 0.3s; font-family:inherit;
+    }
+    
+    select:focus, input:focus, textarea:focus { 
+      outline:none; border-color:#3498db; box-shadow:0 0 0 3px rgba(52,152,219,0.1);
+    }
+    
+    button { 
+      background:#3498db; color:white; border:none; cursor:pointer;
+      font-weight:600; margin-top:10px;
+    }
+    button:hover { background:#2980b9; transform:translateY(-1px); }
+    button:active { transform:translateY(0); }
+    
+    .btn-danger { background:#e74c3c; }
+    .btn-danger:hover { background:#c0392b; }
+    
+    .btn-success { background:#27ae60; }
+    .btn-success:hover { background:#229954; }
+    
+    .btn-warning { background:#f39c12; }
+    .btn-warning:hover { background:#d68910; }
+    
+    .checkbox-group label {
+      display:flex; align-items:center; gap:8px; margin:8px 0;
+      font-weight:normal; cursor:pointer;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      width:auto; cursor:pointer;
+    }
+    
+    .info-box { 
+      background:white; padding:15px; border-radius:8px; 
+      box-shadow:0 2px 4px rgba(0,0,0,0.08); margin-bottom:15px;
+    }
+    
+    .info-box strong { display:block; color:#2c3e50; margin-bottom:10px; font-size:15px; }
+    
+    .legend-item { 
+      display:flex; align-items:center; margin:8px 0; font-size:13px;
+    }
+    
+    .legend-color { 
+      width:30px; height:20px; margin-right:10px; 
+      border:1px solid #ccc; border-radius:3px; flex-shrink:0;
+    }
+    
+    .coords { 
+      font-size:12px; color:#7f8c8d; padding:10px; 
+      background:white; border-radius:5px;
+    }
+    
+    .stats { font-size:13px; line-height:1.8; color:#555; }
+    
+    .bidang-info {
+      background:#ecf0f1; padding:12px; border-radius:5px;
+      margin-top:10px; font-size:13px; line-height:1.6;
+    }
+    
+    .bidang-info strong { color:#2c3e50; }
+    
+    .measurement-result {
+      background:#d5f4e6; padding:12px; border-radius:5px;
+      margin-top:10px; font-size:14px; font-weight:600;
+      color:#27ae60; display:none;
+    }
+    
+    .feedback-form textarea {
+      min-height:100px; resize:vertical;
+    }
+    
+    .feedback-success {
+      background:#d5f4e6; color:#27ae60; padding:12px;
+      border-radius:5px; margin-top:10px; display:none;
+    }
+    
+    .tool-buttons {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    }
+    
+    .leaflet-popup-content { font-size:14px; max-width:300px; }
+    .leaflet-popup-content strong { color:#2c3e50; }
+    
+    .layer-count {
+      display:inline-block; background:#3498db; color:white;
+      padding:2px 8px; border-radius:10px; font-size:11px;
+      margin-left:5px; font-weight:bold;
+    }
+    
+    @media (max-width: 768px) {
+      #map { right:0; bottom:50%; }
+      #sidebar { width:100%; top:50%; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="sidebar">
+  <div class="sidebar-content">
+    <h3>🗺️ WebGIS Kelurahan Rangkah</h3>
+
+    <!-- Basemap Control -->
+    <div class="control-group">
+      <h4>🎨 Basemap</h4>
+      <select id="basemapSelect">
+        <option value="osm">OpenStreetMap</option>
+        <option value="satellite">Esri Satellite</option>
+        <option value="carto">Carto Light</option>
+        <option value="dark">Carto Dark</option>
+      </select>
+    </div>
+
+    <!-- Layer Toggle -->
+    <div class="control-group">
+      <h4>📊 Layer Control</h4>
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" id="toggleBidang" checked> 
+          Bidang Tanah <span class="layer-count" id="bidangCount">0</span>
+        </label>
+        <label>
+          <input type="checkbox" id="toggleJalan" checked> 
+          Jaringan Jalan <span class="layer-count" id="jalanCount">0</span>
+        </label>
+        <label>
+          <input type="checkbox" id="toggleBatas" checked> 
+          Batas Wilayah
+        </label>
+      </div>
+    </div>
+
+    <!-- Navigation Tools -->
+    <div class="control-group">
+      <h4>🧭 Navigasi</h4>
+      <div class="tool-buttons">
+        <button id="resetBtn">🔄 Reset View</button>
+        <button id="fitBtn">📍 Fit Bounds</button>
+      </div>
+    </div>
+
+    <!-- Measurement Tools -->
+    <div class="control-group">
+      <h4>📏 Alat Pengukuran</h4>
+      <div class="tool-buttons">
+        <button id="measureDistance" class="btn-warning">📐 Ukur Jarak</button>
+        <button id="measureArea" class="btn-warning">📊 Ukur Luas</button>
+        <button id="clearMeasure" class="btn-danger">🗑️ Hapus Ukuran</button>
+      </div>
+      <div class="measurement-result" id="measureResult"></div>
+    </div>
+
+    <!-- Spatial Analysis -->
+    <div class="control-group">
+      <h4>🔍 Analisis Spasial</h4>
+      <button id="analyzeBtn" class="btn-success">📊 Analisis Area</button>
+      <div id="analysisResult" style="margin-top:10px; font-size:13px;"></div>
+    </div>
+
+    <!-- Info Bidang Terpilih -->
+    <div class="control-group">
+      <h4>📋 Info Bidang Terpilih</h4>
+      <div class="bidang-info" id="selectedBidang">
+        Klik pada bidang tanah untuk melihat informasi detail
+      </div>
+    </div>
+
+    <!-- Area Information -->
+    <div class="info-box">
+      <strong>📈 Informasi Wilayah</strong>
+      <div class="stats" id="stats">
+        <div>Kelurahan: <strong>Rangkah</strong></div>
+        <div>Kecamatan: <strong>Tambaksari</strong></div>
+        <div>Kota: <strong>Surabaya</strong></div>
+        <div>Provinsi: <strong>Jawa Timur</strong></div>
+        <div id="totalArea">Total Bidang: <strong>-</strong></div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="info-box">
+      <strong>🎨 Legenda</strong>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#3498db; opacity:0.6;"></div>
+        <span>Bidang Tanah</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#e74c3c;"></div>
+        <span>Jalan Utama</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#34495e;"></div>
+        <span>Jalan Lokal</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:transparent; border:3px solid #27ae60; border-style:dashed;"></div>
+        <span>Batas Kelurahan</span>
+      </div>
+    </div>
+
+    <!-- Feedback Form -->
+    <div class="control-group feedback-form">
+      <h4>💬 Feedback / Masukan</h4>
+      <label for="feedbackName">Nama (Opsional)</label>
+      <input type="text" id="feedbackName" placeholder="Masukkan nama Anda">
+      
+      <label for="feedbackEmail">Email (Opsional)</label>
+      <input type="text" id="feedbackEmail" placeholder="email@example.com">
+      
+      <label for="feedbackMessage">Pesan *</label>
+      <textarea id="feedbackMessage" placeholder="Tuliskan saran, masukan, atau laporan masalah..." required></textarea>
+      
+      <button id="submitFeedback" class="btn-success">📤 Kirim Feedback</button>
+      <div class="feedback-success" id="feedbackSuccess">
+        ✅ Terima kasih! Feedback Anda telah diterima.
+      </div>
+    </div>
+
+    <!-- Coordinates Display -->
+    <div class="coords">
+      <strong>📍 Koordinat Mouse:</strong><br>
+      <span id="coords">Gerakkan mouse di peta...</span>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<script>
+// Inisialisasi Peta
+const map = L.map('map').setView([-7.248, 112.768], 15);
+
+// Basemaps
+const basemaps = {
+  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }),
+  satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri'
+  }),
+  carto: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+    attribution: '© CartoDB'
+  }),
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+    attribution: '© CartoDB'
+  })
+};
+
+basemaps.osm.addTo(map);
+
+// Layer Groups
+let bidangLayer, jalanLayer, batasLayer;
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+// Color generator berdasarkan OBJECTID
+function getColorByObjectId(objectId) {
+  const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+  return colors[objectId % colors.length];
+}
+
+// Load GeoJSON Files
+async function loadGeoJSON() {
+  try {
+    // Load Bidang Tanah
+    const bidangResponse = await fetch('Geojson/rangkah.json');
+    const bidangData = await bidangResponse.json();
+    
+    bidangLayer = L.geoJSON(bidangData, {
+      style: function(feature) {
+        return {
+          fillColor: '#3498db',
+          weight: 2,
+          opacity: 1,
+          color: '#2c3e50',
+          fillOpacity: 0.6
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        const props = feature.properties;
+        
+        // Popup hanya dengan 8 field yang diminta
+        let popupContent = `<strong style="font-size:16px; color:#e74c3c;">📍 Informasi Bidang Tanah</strong><br><br>`;
+        popupContent += `<strong>🏢 Kecamatan:</strong> ${props.KECAMATAN || '-'}<br>`;
+        popupContent += `<strong>🏘️ Kelurahan:</strong> ${props.KELURAHAN || '-'}<br>`;
+        popupContent += `<strong>📋 Tipe Hak:</strong> ${props.TIPEHAK || '-'}<br>`;
+        popupContent += `<strong>📅 Tahun:</strong> ${props.TAHUN || '-'}<br>`;
+        popupContent += `<strong>🔢 NIB:</strong> ${props.NIB || '-'}<br>`;
+        popupContent += `<strong>📏 Luas Peta:</strong> ${props.LUASPETA || '-'} m²<br>`;
+        popupContent += `<strong>👤 Nama:</strong> ${props.NAMA || '-'}<br>`;
+        popupContent += `<strong>🏗️ Penggunaan:</strong> ${props.PENGGUNAAN || '-'}`;
+        
+        layer.bindPopup(popupContent);
+        
+        // Hover effect
+        layer.on({
+          mouseover: function(e) {
+            e.target.setStyle({
+              weight: 4,
+              fillOpacity: 0.8
+            });
+          },
+          mouseout: function(e) {
+            bidangLayer.resetStyle(e.target);
+          },
+          click: function(e) {
+            // Update info bidang terpilih
+            const luasPeta = props.LUASPETA || '-';
+            const luasHa = luasPeta !== '-' ? (parseFloat(luasPeta) / 10000).toFixed(4) : '-';
+            
+            document.getElementById('selectedBidang').innerHTML = `
+              <strong>🏢 Kecamatan:</strong> ${props.KECAMATAN || '-'}<br>
+              <strong>🏘️ Kelurahan:</strong> ${props.KELURAHAN || '-'}<br>
+              <strong>📋 Tipe Hak:</strong> ${props.TIPEHAK || '-'}<br>
+              <strong>📅 Tahun:</strong> ${props.TAHUN || '-'}<br>
+              <strong>🔢 NIB:</strong> ${props.NIB || '-'}<br>
+              <strong>📏 Luas Peta:</strong> ${luasPeta} m² (${luasHa} Ha)<br>
+              <strong>👤 Nama:</strong> ${props.NAMA || '-'}<br>
+              <strong>🏗️ Penggunaan:</strong> ${props.PENGGUNAAN || '-'}<br>
+              <strong>📍 Koordinat:</strong> ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}
+            `;
+          }
+        });
+      }
+    }).addTo(map);
+    
+    document.getElementById('bidangCount').textContent = bidangData.features.length;
+    document.getElementById('totalArea').innerHTML = `Total Bidang: <strong>${bidangData.features.length}</strong>`;
+    
+    // Load Jalan
+    const jalanResponse = await fetch('Geojson/jalan.json');
+    const jalanData = await jalanResponse.json();
+    
+    jalanLayer = L.geoJSON(jalanData, {
+      style: function(feature) {
+        const remark = feature.properties.REMARK || feature.properties.remark || '';
+        const isUtama = remark.toLowerCase().includes('nasional') || remark.toLowerCase().includes('utama');
+        return {
+          color: isUtama ? '#e74c3c' : '#34495e',
+          weight: isUtama ? 4 : 2,
+          opacity: 0.8
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        const props = feature.properties;
+        let popupContent = `<strong>🛣️ Jalan</strong><br>`;
+        for (let key in props) {
+          popupContent += `<strong>${key}:</strong> ${props[key] || '-'}<br>`;
+        }
+        layer.bindPopup(popupContent);
+      }
+    }).addTo(map);
+    
+    document.getElementById('jalanCount').textContent = jalanData.features.length;
+    
+    // Load Batas Wilayah
+    const batasResponse = await fetch('Geojson/batas.json');
+    const batasData = await batasResponse.json();
+    
+    batasLayer = L.geoJSON(batasData, {
+      style: {
+        color: '#27ae60',
+        weight: 4,
+        fillColor: 'transparent',
+        fillOpacity: 0,
+        dashArray: '10, 10'
+      },
+      interactive: false // Tidak bisa diklik, tidak menimpa layer lain
+    }).addTo(map);
+    
+    // Fit bounds ke semua layer
+    const allBounds = L.featureGroup([bidangLayer, jalanLayer, batasLayer]).getBounds();
+    map.fitBounds(allBounds);
+    
+  } catch (error) {
+    console.error('Error loading GeoJSON:', error);
+    alert('Error loading data: ' + error.message + '\n\nPastikan file GeoJSON tersedia di lokasi yang benar.');
+  }
+}
+
+// GeometryUtil for area calculation
+L.GeometryUtil = L.extend(L.GeometryUtil || {}, {
+  geodesicArea: function (latLngs) {
+    let pointsCount = latLngs.length,
+        area = 0.0,
+        d2r = Math.PI / 180,
+        p1, p2;
+
+    if (pointsCount > 2) {
+      for (let i = 0; i < pointsCount; i++) {
+        p1 = latLngs[i];
+        p2 = latLngs[(i + 1) % pointsCount];
+        area += ((p2.lng - p1.lng) * d2r) *
+                (2 + Math.sin(p1.lat * d2r) + Math.sin(p2.lat * d2r));
+      }
+      area = area * 6378137.0 * 6378137.0 / 2.0;
+    }
+
+    return Math.abs(area);
+  }
+});
+
+// Measurement Tools
+let measureControl = null;
+
+document.getElementById('measureDistance').addEventListener('click', function() {
+  if (measureControl) {
+    map.removeControl(measureControl);
+  }
+  
+  measureControl = new L.Control.Draw({
+    draw: {
+      polyline: {
+        shapeOptions: {
+          color: '#f39c12',
+          weight: 4
+        }
+      },
+      polygon: false,
+      circle: false,
+      rectangle: false,
+      marker: false,
+      circlemarker: false
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+  
+  map.addControl(measureControl);
+  new L.Draw.Polyline(map, measureControl.options.draw.polyline).enable();
+});
+
+document.getElementById('measureArea').addEventListener('click', function() {
+  if (measureControl) {
+    map.removeControl(measureControl);
+  }
+  
+  measureControl = new L.Control.Draw({
+    draw: {
+      polygon: {
+        shapeOptions: {
+          color: '#3498db',
+          weight: 3
+        }
+      },
+      polyline: false,
+      circle: false,
+      rectangle: false,
+      marker: false,
+      circlemarker: false
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+  
+  map.addControl(measureControl);
+  new L.Draw.Polygon(map, measureControl.options.draw.polygon).enable();
+});
+
+document.getElementById('clearMeasure').addEventListener('click', function() {
+  drawnItems.clearLayers();
+  document.getElementById('measureResult').style.display = 'none';
+  if (measureControl) {
+    map.removeControl(measureControl);
+    measureControl = null;
+  }
+});
+
+// Handle measurement results
+map.on(L.Draw.Event.CREATED, function (e) {
+  const layer = e.layer;
+  drawnItems.addLayer(layer);
+  
+  const resultDiv = document.getElementById('measureResult');
+  
+  if (e.layerType === 'polyline') {
+    const latlngs = layer.getLatLngs();
+    let distance = 0;
+    for (let i = 0; i < latlngs.length - 1; i++) {
+      distance += latlngs[i].distanceTo(latlngs[i + 1]);
+    }
+    resultDiv.innerHTML = `📏 Jarak: <strong>${(distance / 1000).toFixed(2)} km</strong> (${distance.toFixed(2)} m)`;
+    resultDiv.style.display = 'block';
+  } else if (e.layerType === 'polygon') {
+    const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+    resultDiv.innerHTML = `📊 Luas: <strong>${(area / 10000).toFixed(2)} Ha</strong> (${area.toFixed(2)} m²)`;
+    resultDiv.style.display = 'block';
+  }
+});
+
+// Spatial Analysis
+document.getElementById('analyzeBtn').addEventListener('click', function() {
+  if (!bidangLayer) {
+    alert('Data bidang tanah belum dimuat');
+    return;
+  }
+  
+  let totalBidang = 0;
+  let totalArea = 0;
+  const bounds = map.getBounds();
+  
+  bidangLayer.eachLayer(function(layer) {
+    if (bounds.intersects(layer.getBounds())) {
+      totalBidang++;
+      totalArea += L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+    }
+  });
+  
+  document.getElementById('analysisResult').innerHTML = `
+    <div style="background:#ecf0f1; padding:12px; border-radius:5px; margin-top:10px;">
+      <strong>Hasil Analisis Area Tampilan:</strong><br>
+      📍 Jumlah Bidang: <strong>${totalBidang}</strong><br>
+      📊 Total Luas: <strong>${(totalArea / 10000).toFixed(2)} Ha</strong><br>
+      📏 Luas Rata-rata: <strong>${(totalArea / totalBidang / 10000).toFixed(2)} Ha</strong>
+    </div>
+  `;
+});
+
+// Layer Toggle Controls
+document.getElementById('toggleBidang').addEventListener('change', function(e) {
+  if (e.target.checked && bidangLayer) map.addLayer(bidangLayer);
+  else if (bidangLayer) map.removeLayer(bidangLayer);
+});
+
+document.getElementById('toggleJalan').addEventListener('change', function(e) {
+  if (e.target.checked && jalanLayer) map.addLayer(jalanLayer);
+  else if (jalanLayer) map.removeLayer(jalanLayer);
+});
+
+document.getElementById('toggleBatas').addEventListener('change', function(e) {
+  if (e.target.checked && batasLayer) map.addLayer(batasLayer);
+  else if (batasLayer) map.removeLayer(batasLayer);
+});
+
+// Basemap Control
+document.getElementById('basemapSelect').addEventListener('change', function(e) {
+  Object.values(basemaps).forEach(l => map.removeLayer(l));
+  basemaps[e.target.value].addTo(map);
+});
+
+// Navigation Controls
+document.getElementById('resetBtn').addEventListener('click', function() {
+  map.setView([-7.248, 112.768], 15);
+});
+
+document.getElementById('fitBtn').addEventListener('click', function() {
+  if (bidangLayer || jalanLayer || batasLayer) {
+    const layers = [];
+    if (bidangLayer) layers.push(bidangLayer);
+    if (jalanLayer) layers.push(jalanLayer);
+    if (batasLayer) layers.push(batasLayer);
+    const allBounds = L.featureGroup(layers).getBounds();
+    map.fitBounds(allBounds);
+  }
+});
+
+// Feedback Form
+document.getElementById('submitFeedback').addEventListener('click', function() {
+  const message = document.getElementById('feedbackMessage').value.trim();
+  
+  if (!message) {
+    alert('Silakan isi pesan feedback Anda');
+    return;
+  }
+  
+  const name = document.getElementById('feedbackName').value;
+  const email = document.getElementById('feedbackEmail').value;
+  
+  // Simulasi pengiriman feedback (dalam produksi, kirim ke server)
+  console.log('Feedback submitted:', { name, email, message });
+  
+  // Tampilkan pesan sukses
+  document.getElementById('feedbackSuccess').style.display = 'block';
+  
+  // Reset form
+  document.getElementById('feedbackName').value = '';
+  document.getElementById('feedbackEmail').value = '';
+  document.getElementById('feedbackMessage').value = '';
+  
+  // Sembunyikan pesan sukses setelah 5 detik
+  setTimeout(function() {
+    document.getElementById('feedbackSuccess').style.display = 'none';
+  }, 5000);
+});
+
+// Mouse Coordinates
+map.on('mousemove', function(e) {
+  document.getElementById('coords').textContent = 
+    `Lat: ${e.latlng.lat.toFixed(6)}, Lng: ${e.latlng.lng.toFixed(6)}`;
+});
+
+// Scale Control
+L.control.scale({imperial: false, metric: true, position: 'bottomleft'}).addTo(map);
+
+// Load all GeoJSON data
+loadGeoJSON();
+</script>
+
+</body>
+</html>
