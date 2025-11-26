@@ -1,1 +1,1 @@
-# Sistem-infomasi-pertanahan
+# Sistem-Informasi-Pertanahan
